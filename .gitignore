@@ -1,0 +1,7 @@
+# Virtual environments (Root and Nested)
+venv/
+.venv/
+env/
+ENV/
+venv-bak/
+.venv-bak/
