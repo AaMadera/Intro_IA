@@ -1,0 +1,21 @@
+# Easy map: gold is one step ahead, no pits next to the start.
+# Used to show that a simple reflex agent can grab gold but still
+# cannot climb out, because climbing requires remembering the exit.
+
+grid:
+  width: 4
+  height: 4
+
+agent:
+  start: [1, 1]
+  direction: east
+  arrows: 1
+
+wumpus: [4, 4]
+
+pits:
+  - [4, 3]
+
+gold: [2, 1]
+
+max_steps: 80
