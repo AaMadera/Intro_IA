@@ -2,7 +2,9 @@
 
 Files created for this assessment:
 
-- [my_cave_4x4.yaml](../docs_from_teacher/config/my_cave_4x4.yaml)
+- [my_cave_4x4_mid.yaml](../docs_from_teacher/config/my_cave_4x4_mid.yaml)
+- [my_cave_4x4_easier.yaml](../docs_from_teacher/config/my_cave_4x4_easier.yaml)
+- [my_cave_4x4_harder.yaml](../docs_from_teacher/config/my_cave_4x4_harder.yaml)
 
 ## New map - easy level
 
