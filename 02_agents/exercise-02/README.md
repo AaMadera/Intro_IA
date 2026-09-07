@@ -2,9 +2,9 @@
 
 PEAS description for each application scenario
 
-## Virtual Voice Assitant
+## Virtual Voice Assistant
 
-- **Performance:** Number of Words transcripted, delay, time to bring the answer
+- **Performance:** Number of Words transcribed, delay, time to bring the answer
 - **Environment:** _Partially observable_ since it starts to record human voice when there is a trigger (like " Hey, Alexa!" to start recording a task).
 _Deterministic_, because it needs to send the transcript text to the server to know how to speak back, so the answer is related to the task it heard, for the same reason it is _sequential_.
 _Static_ because it needs next human interaction to get a new response.
@@ -48,7 +48,7 @@ _Continuos_ The vars can be discretized for coding and signal processing, but th
 
 - **Performance:** Amount lose or earned, time of response, statistic variables
 - **Environment:** _Partially observable_ Because it doesn't require to have all history of for example all the previous stock values, it just require to see trending lines/functions, based on that it will take decision for selling or buying, like, if the prices ir higher or lower than the goal and based on slop of the trending if going up or low the reference
-_Stochastic_ Yes because it cannot predict the future values, I mean, trends help to stimate future behaviors but these cannot be 100% true, the variables affecting stock values are a lot.
+_Stochastic_ Yes because it cannot predict the future values, I mean, trends help to estimate future behaviors but these cannot be 100% true, the variables affecting stock values are a lot.
 _Episodic_ It should apply sell/buy actions based on the current stoke values, instead of what happened in the past.
 _Dynamic_ Everything is changing while the agent is thinking or processing.
 - **Actuators:** sell function, buy function
