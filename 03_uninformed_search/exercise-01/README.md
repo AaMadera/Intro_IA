@@ -161,5 +161,5 @@ Frontier:  max size 8
 
     It needed `4`
   - **And How that is related with path deepness of BFS/IDS (Iterative Deepening Search)?**
-     
+
     (TO-DO)
