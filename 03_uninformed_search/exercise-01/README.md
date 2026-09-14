@@ -58,6 +58,8 @@ Generated: 32 nodes
 Frontier:  max size 6
 ```
 
+This found the solution with the minimum of kms, the others have the same cost of kms
+
 ## Depth First Search
 
 command:
@@ -79,6 +81,8 @@ Expanded:  4 nodes
 Generated: 13 nodes
 Frontier:  max size 5
 ```
+
+This expanded the least number of nodes along with Depth First Limited Search (with limit of 4)
 
 ## Depth First Limited Search (limit 2)
 
@@ -146,20 +150,27 @@ Generated: 34 nodes
 Frontier:  max size 8
 ```
 
+This one seems to be the one that explored the most number of paths/nodes, since it expanded 14 nodes (2x BFS) and generated 34 nodes (2x BFS)
+
 ## Analysis
 
 - **Did `Breadth First Search (BFS)` find the path with less "roads/paths"?**
 
-    Yes matter of fact, all of the methods found 4 paths, excluding UCS
+    Yes, matter of fact, all of the methods found 4 paths for this case
   - **Is `Uniform Cost Search (UCS)` the one with less kms?**
 
-    Yes, it is the one with less km in its results
+    Yes, it is the one with less km in its results.
+
+    It also took 4 stops/cities but with the least of possible kms.
+
 - **Why can `Depth First Search (DFS)` return a longer path even when graph is the same?**
 
-   (TO-DO) I think because it sort the names alphabetically
-- **With which `--limit` `Depth First Limited Search (DLS)` passed from `cutoff` to solution?**
+   I think it's because it expands the nodes in order until reaching  to the final node (leaf) in each case, so if there is more than 1 option due the order of nodes it will get the first solution that gets it through the goal
+
+- **With which `--limit` did `Depth First Limited Search (DLS)` pass from `cutoff` to solution?**
 
     It needed `4`
+
   - **And How that is related with path deepness of BFS/IDS (Iterative Deepening Search)?**
 
-    (TO-DO)
+    In this case the depth of the goal node was 4, that's why DLS with limit of 4 was able to find the goal, as well as the other methods
