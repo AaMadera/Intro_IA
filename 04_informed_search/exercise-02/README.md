@@ -180,3 +180,5 @@ Updates in the html file ([mexico_map_complete.html](../docs_from_teacher/mexico
   - Greedy
 - UI has a quick summary look up to compare some details from each method
 - UI has a card for each method with the title, details of algorithm/method and the found path
+
+![4 methods showing path from Puebla, Puebla to Puebla, Baja California](./assets/optional-challenge.png)
