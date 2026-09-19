@@ -13,7 +13,7 @@ This repo is to create answers to subject assessments, and for notes
     - [exercise 1](./03_uninformed_search/exercise-01/README.md)
 4. Informed Search
     - [exercise 1](./04_informed_search/exercise-01/README.md)
-    - exercise 2 [WIP]
+    - [exercise 2 (Optional)](./04_informed_search/exercise-02/README.md)
 
 ## Subject web site
 
