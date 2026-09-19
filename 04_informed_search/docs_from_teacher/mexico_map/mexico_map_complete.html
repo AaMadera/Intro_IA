@@ -47,6 +47,8 @@
       flex-direction: column;
       gap: 18px;
       min-height: 100vh;
+      max-height: 100vh;
+      overflow-y: auto;
     }
 
     h1 {
@@ -165,6 +167,45 @@
       line-height: 1.4;
     }
 
+    .method-results {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .method-result {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      background: var(--bg);
+    }
+
+    .method-result h3 {
+      margin: 0 0 3px;
+      font: 600 13px ui-sans-serif, "Helvetica Neue", sans-serif;
+    }
+
+    .method-result p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .method-result .method-metrics {
+      margin-top: 6px;
+      color: var(--ink);
+      font: 600 11px ui-sans-serif, "Helvetica Neue", sans-serif;
+    }
+
+    .method-result .method-path {
+      margin-top: 5px;
+      overflow-wrap: anywhere;
+    }
+
+    .method-result.primary {
+      border-color: var(--accent);
+    }
+
     .legend {
       font-size: 12px;
       color: var(--muted);
@@ -246,11 +287,37 @@
       </select>
     </div>
     <div class="route">
-      <label for="route-start">A* route</label>
+      <label for="route-start">Compare route methods</label>
       <select id="route-start"></select>
       <select id="route-goal"></select>
       <button id="route-run" type="button">Find route</button>
-      <div class="route-result" id="route-result">Choose an origin and destination.</div>
+      <div class="route-result" id="route-result">
+        Choose an origin and destination to compare all four methods.
+      </div>
+      <div class="method-results" aria-live="polite">
+        <section id="methods-summary"></section>
+        <section class="method-result primary" id="result-astar">
+          <h3>A* with haversine h(n)</h3>
+          <p>Uses road cost so far plus straight-line distance to the goal. The haversine formula estimates that
+            distance over Earth.</p>
+          <p class="method-metrics">Waiting for a route.</p>
+        </section>
+        <section class="method-result" id="result-astar-zero">
+          <h3>A* with h(n) = 0</h3>
+          <p>Removes heuristic guidance, so priority is only the cost accumulated so far.</p>
+          <p class="method-metrics">Waiting for a route.</p>
+        </section>
+        <section class="method-result" id="result-ucs">
+          <h3>Uniform-cost search</h3>
+          <p>Expands the lowest accumulated road cost first, without a heuristic.</p>
+          <p class="method-metrics">Waiting for a route.</p>
+        </section>
+        <section class="method-result" id="result-greedy">
+          <h3>Greedy best-first search</h3>
+          <p>Expands the city with the smallest haversine h(n), consider h only, ignoring the cost so far.</p>
+          <p class="method-metrics">Waiting for a route.</p>
+        </section>
+      </div>
     </div>
     <div class="row">
       <input id="labels" type="checkbox" checked />
@@ -384,8 +451,8 @@
 
     let routePath = [];
     let routeCost = 0;
-    function runAStar(start, goal) {
-      const frontier = [{ id: start, g: 0, f: haversine(nodeById.get(start), nodeById.get(goal)), parent: null }];
+    function runAStar(start, goal, heuristic = state => haversine(nodeById.get(state), nodeById.get(goal))) {
+      const frontier = [{ id: start, g: 0, f: heuristic(start), parent: null }];
       const bestG = new Map([[start, 0]]), parents = new Map(), closed = new Set();
       let expanded = 0;
       while (frontier.length) {
@@ -407,11 +474,95 @@
           if (!bestG.has(next) || g < bestG.get(next)) {
             bestG.set(next, g);
             parents.set(next, current.id);
-            frontier.push({ id: next, g, f: g + haversine(nodeById.get(next), nodeById.get(goal)) });
+            frontier.push({ id: next, g, f: g + heuristic(next) });
           }
         }
       }
       return null;
+    }
+
+    function runUniformCost(start, goal) {
+      const frontier = [{ id: start, g: 0, parent: null }];
+      const bestCost = new Map([[start, 0]]), parents = new Map(), closed = new Set();
+      let expanded = 0;
+      while (frontier.length) {
+        frontier.sort((a, b) => a.g - b.g);
+        const current = frontier.shift();
+        if (closed.has(current.id)) continue;
+        if (current.id === goal) {
+          const path = [goal];
+          let id = goal;
+          while (parents.has(id)) { id = parents.get(id); path.push(id); }
+          path.reverse();
+          return { path, cost: current.g, expanded };
+        }
+        closed.add(current.id);
+        expanded += 1;
+        for (const [next, km] of adjacency.get(current.id)) {
+          if (closed.has(next)) continue;
+          const cost = current.g + km;
+          if (!bestCost.has(next) || cost < bestCost.get(next)) {
+            bestCost.set(next, cost);
+            parents.set(next, current.id);
+            frontier.push({ id: next, g: cost });
+          }
+        }
+      }
+      return null;
+    }
+
+    function runGreedy(start, goal) {
+      const heuristic = state => haversine(nodeById.get(state), nodeById.get(goal));
+      const frontier = [{ id: start, g: 0 }];
+      const frontierStates = new Set([start]), parents = new Map(), explored = new Set();
+      let expanded = 0;
+      while (frontier.length) {
+        frontier.sort((a, b) => heuristic(a.id) - heuristic(b.id));
+        const current = frontier.shift();
+        frontierStates.delete(current.id);
+        if (explored.has(current.id)) continue;
+        if (current.id === goal) {
+          const path = [goal];
+          let id = goal;
+          while (parents.has(id)) { id = parents.get(id); path.push(id); }
+          path.reverse();
+          return { path, cost: current.g, expanded };
+        }
+        explored.add(current.id);
+        expanded += 1;
+        for (const [next, km] of adjacency.get(current.id)) {
+          if (explored.has(next) || frontierStates.has(next)) continue;
+          parents.set(next, current.id);
+          frontier.push({ id: next, g: current.g + km });
+          frontierStates.add(next);
+        }
+      }
+      return null;
+    }
+
+    function renderMethodResult(id, result) {
+      const panel = document.getElementById(id);
+      const metrics = panel.querySelector(".method-metrics");
+      const path = panel.querySelector(".method-path") || document.createElement("p");
+      path.className = "method-path";
+      if (!result) {
+        metrics.textContent = "No route found.";
+        path.textContent = "";
+        if (!path.parentElement) panel.appendChild(path);
+        return;
+      }
+      metrics.textContent = `${result.cost.toFixed(2)} km · ${result.path.length - 1} hops · ${result.expanded} expanded`;
+      path.textContent = result.path.map(id => nodeById.get(id).name).join(" → ");
+      if (!path.parentElement) panel.appendChild(path);
+    }
+
+    function renderSummary(results) {
+      if (!results.length) return;
+      const summary = document.getElementById("methods-summary");
+      summary.innerHTML = '<h4 style="margin: 2px; padding: 0;"> Summary of Method Results: </h4>' + results.map(r => {
+        if (!r.result) return `<div><small><b>${r.name}</b></small><pstyle="margin: 0; padding: 0;">No route found</p></div>`;
+        return `<div><small><b>${r.name}</b><small><p style="margin: 0; padding: 0;">${r.result.cost.toFixed(2)} km · ${r.result.path.length - 1} hops · ${r.result.expanded} expanded</p></small></small></div>`;
+      }).join("") + '<hr/>';
     }
 
     function styleRoute() {
@@ -454,11 +605,26 @@
 
     document.getElementById("route-run").addEventListener("click", () => {
       const start = Number(routeStart.value), goal = Number(routeGoal.value);
-      const result = runAStar(start, goal);
-      if (!result) { routeResult.textContent = "No route found."; return; }
-      routePath = result.path;
-      routeCost = result.cost;
-      routeResult.innerHTML = `<strong>${result.cost.toFixed(2)} km</strong> · ${result.path.length - 1} hops · ${result.expanded} expanded<br>${result.path.map(id => nodeById.get(id).name).join(" → ")}`;
+      const astar = runAStar(start, goal);
+      const astarZero = runAStar(start, goal, () => 0);
+      const ucs = runUniformCost(start, goal);
+      const greedy = runGreedy(start, goal);
+
+      renderSummary([
+        { name: "A* (haversine)", result: astar },
+        { name: "A* (zero heuristic)", result: astarZero },
+        { name: "Uniform Cost Search", result: ucs },
+        { name: "Greedy Best-First Search", result: greedy },
+      ]);
+
+      renderMethodResult("result-astar", astar);
+      renderMethodResult("result-astar-zero", astarZero);
+      renderMethodResult("result-ucs", ucs);
+      renderMethodResult("result-greedy", greedy);
+      if (!astar) { routeResult.textContent = "No route found."; return; }
+      routePath = astar.path;
+      routeCost = astar.cost;
+      routeResult.textContent = "--> A* with haversine h(n) is highlighted on the map.";
       highlight(-1);
     });
 
