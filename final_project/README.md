@@ -2,6 +2,22 @@
 
 Este proyecto es un MVP educativo de RAG para consultar información agrícola sobre chile habanero. La interfaz está construida con Streamlit, la API con FastAPI, la recuperación vectorial con ChromaDB y los modelos de Google AI.
 
+## Comienzo rápido
+
+Desde `final_project/`
+
+Copia o duplica `.env.example` en `.env`
+
+Configura `GOOGLE_API_KEY` en `.env` y ejecuta:
+
+```bash
+uv sync --locked
+docker-compose build # or docker compose build
+docker-compose up # or docker compose up
+```
+
+Abre Streamlit en <http://localhost:8501> y la documentación de FastAPI en <http://localhost:8000/docs>. Detén los servicios con `docker-compose down` y ejecuta las pruebas con `uv run pytest -q`.
+
 ## Corpus inicial
 
 El corpus incluido en [`pdfs_seed/`](./pdfs_seed/) contiene estos cuatro PDF:
@@ -171,4 +187,4 @@ Las pruebas cubren extracción y fallback de PDF, fragmentación, persistencia y
 
 ## Evidencias
 
-Consulta [`evidence/README.md`](./evidence/README.md) para la lista de capturas y comprobaciones manuales requeridas. Las evidencias deben mostrar respuestas citadas, la consulta equivalente en `/docs`, una abstención fuera de dominio y la persistencia tras reiniciar, sin revelar la clave ni incluir secretos en el repositorio.
+Consulta [`evidence/README.md`](./evidence/README.md) para la lista de capturas y comprobaciones manuales.
