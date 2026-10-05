@@ -1,0 +1,27 @@
+[project]
+name = "habanero-rag"
+version = "0.1.0"
+description = "RAG MVP for agricultural information about chile habanero"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "chromadb==0.6.3",
+    "fastapi==0.115.6",
+    "google-genai==1.2.0",
+    "httpx==0.28.1",
+    "pypdf==5.1.0",
+    "python-dotenv==1.0.1",
+    "python-multipart==0.0.20",
+    "streamlit==1.41.1",
+    "uvicorn[standard]==0.34.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.3.4",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

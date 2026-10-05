@@ -5,3 +5,13 @@ env/
 ENV/
 venv-bak/
 .venv-bak/
+
+# Workspace-installed agent skills
+.github/skills/brainstorming/
+.github/skills/writing-plans/
+.github/skills/executing-plans/
+
+# Do not include it for the final proyect
+final_project/docs_from_teacher
+final_project/specs/
+final_project/data/processed/*
