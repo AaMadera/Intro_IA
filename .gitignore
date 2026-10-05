@@ -11,7 +11,7 @@ venv-bak/
 .github/skills/writing-plans/
 .github/skills/executing-plans/
 
-# Do not include it for the final proyect
+# No needed for the final project
 final_project/docs_from_teacher
 final_project/specs/
 final_project/data/processed/*
