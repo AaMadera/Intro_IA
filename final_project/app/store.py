@@ -25,8 +25,9 @@ class VectorStore:
         if not chunks:
             return 0
 
-        ids = [chunk.stable_id for chunk in chunks]
-        existing = set(self.collection.get(ids=ids, include=[]).get("ids", []))
+        existing = {chunk.stable_id for chunk in chunks} - {
+            chunk.stable_id for chunk in self.missing_chunks(chunks)
+        }
         new_chunks = [
             (chunk, embedding)
             for chunk, embedding in zip(chunks, embeddings)
@@ -43,13 +44,24 @@ class VectorStore:
         )
         return len(new_chunks)
 
-    def query(self, embedding: list[float], top_k: int) -> list[Citation]:
+    def missing_chunks(self, chunks: list[ChunkRecord]) -> list[ChunkRecord]:
+        if not chunks:
+            return []
+        ids = [chunk.stable_id for chunk in chunks]
+        existing = set(self.collection.get(ids=ids, include=[]).get("ids", []))
+        return [chunk for chunk in chunks if chunk.stable_id not in existing]
+
+    def query(
+        self, embedding: list[float], top_k: int, source: str | None = None
+    ) -> list[Citation]:
         if top_k <= 0:
             return []
+        where = {"source": source} if source else None
         result = self.collection.query(
             query_embeddings=[embedding],
             n_results=top_k,
             include=["documents", "metadatas", "distances"],
+            where=where,
         )
         ids = result.get("ids", [[]])[0]
         documents = result.get("documents", [[]])[0]
@@ -62,8 +74,24 @@ class VectorStore:
             )
         ]
 
+    def delete_source(self, source: str) -> int:
+        result = self.collection.get(where={"source": source}, include=[])
+        ids = result.get("ids", [])
+        if ids:
+            self.collection.delete(ids=ids)
+        return len(ids)
+
     def count(self) -> int:
         return self.collection.count()
+
+    def count_chunks_for_source(
+        self, source: str, source_hash: str | None = None
+    ) -> int:
+        where: dict[str, Any] = {"source": source}
+        if source_hash is not None:
+            where = {"$and": [{"source": source}, {"source_hash": source_hash}]}
+        result = self.collection.get(where=where, include=[])
+        return len(result.get("ids", []))
 
     @staticmethod
     def _metadata(chunk: ChunkRecord) -> dict[str, Any]:

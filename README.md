@@ -23,11 +23,11 @@ Desde `final_project/`, configura `GOOGLE_API_KEY` en `.env` y ejecuta:
 
 ```bash
 uv sync --locked
-docker compose build
-docker compose up
+docker-compose build
+docker-compose up
 ```
 
-Abre Streamlit en <http://localhost:8501> y la documentación de FastAPI en <http://localhost:8000/docs>. Detén los servicios con `docker compose down` y ejecuta las pruebas con `uv run pytest -q`.
+Abre Streamlit en <http://localhost:8501> y la documentación de FastAPI en <http://localhost:8000/docs>. Detén los servicios con `docker-compose down` y ejecuta las pruebas con `uv run pytest -q`.
 
 ## Subject web site
 

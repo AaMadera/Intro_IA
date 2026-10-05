@@ -16,6 +16,23 @@ def test_settings_accepts_legacy_gemini_api_key_name(monkeypatch) -> None:
     assert settings.google_api_key == "test-key"
 
 
+def test_generation_model_defaults_to_gemini_25_flash(monkeypatch) -> None:
+    monkeypatch.setattr("app.config.load_dotenv", lambda: None)
+    monkeypatch.delenv("GOOGLE_GENERATION_MODEL", raising=False)
+
+    settings = Settings.from_env()
+
+    assert settings.google_generation_model == "gemini-3.1-flash-lite"
+
+
+def test_generation_model_can_be_overridden(monkeypatch) -> None:
+    monkeypatch.setenv("GOOGLE_GENERATION_MODEL", "otro-modelo-compatible")
+
+    settings = Settings.from_env()
+
+    assert settings.google_generation_model == "otro-modelo-compatible"
+
+
 def load_compose() -> dict:
     compose_path = PROJECT_ROOT / "docker-compose.yml"
     assert compose_path.is_file()
@@ -64,6 +81,10 @@ def test_compose_wires_secret_and_persistent_runtime_paths() -> None:
         "configurada en final_project/.env}}"
     )
     assert "GOOGLE_API_KEY=" not in compose_text
+    assert (
+        api["environment"]["GOOGLE_GENERATION_MODEL"]
+        == "${GOOGLE_GENERATION_MODEL:-gemini-3.1-flash-lite}"
+    )
     assert "./chroma:/app/chroma" in api["volumes"]
     assert "./data/processed:/app/data/processed" in api["volumes"]
     assert "./data/source:/app/data/source" in api["volumes"]

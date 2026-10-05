@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+import pytest
 
 from app.config import Settings
 from app.main import create_app
@@ -19,13 +20,15 @@ class FakeEmbeddingClient:
 class FakeStore:
     def __init__(self, citations: list[Citation]) -> None:
         self.citations = citations
-        self.queries: list[tuple[list[float], int]] = []
+        self.queries: list[tuple[list[float], int, str | None]] = []
 
     def count(self) -> int:
         return len(self.citations)
 
-    def query(self, embedding: list[float], top_k: int) -> list[Citation]:
-        self.queries.append((embedding, top_k))
+    def query(
+        self, embedding: list[float], top_k: int, source: str | None = None
+    ) -> list[Citation]:
+        self.queries.append((embedding, top_k, source))
         return self.citations[:top_k]
 
 
@@ -78,7 +81,7 @@ def test_query_returns_generated_answer_and_retrieved_citations(tmp_path: Path) 
         "abstained": False,
     }
     assert embedder.calls == [(["¿Qué suelo requiere?"], "RETRIEVAL_QUERY")]
-    assert store.queries == [([0.1, 0.2], 3)]
+    assert store.queries == [([0.1, 0.2], 3, None)]
     assert generator.calls == [("¿Qué suelo requiere?", [citation])]
 
 
@@ -128,6 +131,83 @@ def test_query_rejects_unbounded_top_k(tmp_path: Path) -> None:
     response = client.post("/query", json={"question": "Pregunta", "top_k": 0})
 
     assert response.status_code == 422
+
+
+def test_query_accepts_request_level_min_score_and_top_k(tmp_path: Path) -> None:
+    citation = Citation(id="chunk-1", source="manual.pdf", text="Evidencia", score=0.56)
+    client, _, generator, store = make_client(tmp_path, [citation])
+
+    response = client.post(
+        "/query",
+        json={"question": "Pregunta", "top_k": 7, "min_score": 0.55},
+    )
+
+    assert response.status_code == 200
+    assert store.queries == [([0.1, 0.2], 7, None)]
+    assert generator.calls
+
+
+def test_query_uses_configured_defaults_when_overrides_are_omitted(
+    tmp_path: Path,
+) -> None:
+    citations = [
+        Citation(id="chunk-1", source="manual.pdf", text="Evidencia", score=0.36)
+    ]
+    client, _, generator, store = make_client(tmp_path, citations)
+
+    response = client.post("/query", json={"question": "Pregunta"})
+
+    assert response.status_code == 200
+    assert store.queries == [([0.1, 0.2], 4, None)]
+
+
+def test_query_forwards_source_filter(tmp_path: Path) -> None:
+    citation = Citation(id="chunk-1", source="manual.pdf", text="Evidencia", score=0.8)
+    client, _, _, store = make_client(tmp_path, [citation])
+
+    response = client.post(
+        "/query", json={"question": "Pregunta", "source": "manual.pdf"}
+    )
+
+    assert response.status_code == 200
+    assert store.queries == [([0.1, 0.2], 4, "manual.pdf")]
+
+
+@pytest.mark.parametrize("top_k", [1, 11])
+def test_query_rejects_top_k_outside_phase_one_range(
+    tmp_path: Path, top_k: int
+) -> None:
+    client, _, _, _ = make_client(tmp_path, [])
+
+    assert (
+        client.post("/query", json={"question": "Pregunta", "top_k": top_k}).status_code
+        == 422
+    )
+
+
+@pytest.mark.parametrize("min_score", [0.05, 0.95, 0.36])
+def test_query_rejects_invalid_min_score(tmp_path: Path, min_score: float) -> None:
+    client, _, _, _ = make_client(tmp_path, [])
+
+    assert (
+        client.post(
+            "/query", json={"question": "Pregunta", "min_score": min_score}
+        ).status_code
+        == 422
+    )
+
+
+def test_query_accepts_float_representation_of_valid_min_score(tmp_path: Path) -> None:
+    client, _, _, _ = make_client(
+        tmp_path,
+        [Citation(id="chunk-1", source="manual.pdf", text="Evidencia", score=0.31)],
+    )
+
+    response = client.post(
+        "/query", json={"question": "Pregunta", "min_score": 0.30000000000000004}
+    )
+
+    assert response.status_code == 200
 
 
 def test_openapi_exposes_required_routes(tmp_path: Path) -> None:

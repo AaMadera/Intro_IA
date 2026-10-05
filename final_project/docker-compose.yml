@@ -16,7 +16,10 @@ services:
     environment:
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-${GEMINI_API_KEY:?GOOGLE_API_KEY o GEMINI_API_KEY debe estar configurada en final_project/.env}}
       GOOGLE_EMBEDDING_MODEL: ${GOOGLE_EMBEDDING_MODEL:-gemini-embedding-001}
-      GOOGLE_GENERATION_MODEL: ${GOOGLE_GENERATION_MODEL:-gemini-flash-latest}
+      GOOGLE_GENERATION_MODEL: ${GOOGLE_GENERATION_MODEL:-gemini-3.1-flash-lite}
+      MODEL_RETRY_ATTEMPTS: ${MODEL_RETRY_ATTEMPTS:-5}
+      MODEL_RETRY_BACKOFF_SECONDS: ${MODEL_RETRY_BACKOFF_SECONDS:-5}
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-32}
       CHROMA_PATH: /app/chroma
     ports:
       - "8000:8000"
@@ -52,6 +55,7 @@ services:
       - "8501"
     environment:
       API_BASE_URL: http://api:8000
+      QUERY_TIMEOUT_SECONDS: ${QUERY_TIMEOUT_SECONDS:-60}
     depends_on:
       api:
         condition: service_healthy

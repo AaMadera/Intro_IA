@@ -1,6 +1,7 @@
 import io
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
@@ -18,6 +19,22 @@ class FakeEmbeddingClient:
         return [[float(index), 1.0] for index, _ in enumerate(texts, start=1)]
 
 
+class FailingBatchEmbeddingClient(FakeEmbeddingClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail_on_call: int | None = 2
+
+    def embed(self, texts: list[str], task_type: str) -> list[list[float]]:
+        self.calls.append((texts, task_type))
+        if self.fail_on_call is not None and len(self.calls) == self.fail_on_call:
+            from app.retry import RetryExhaustedError
+
+            raise RetryExhaustedError(
+                "El servicio de embeddings", 5, RuntimeError("429")
+            )
+        return [[float(index), 1.0] for index, _ in enumerate(texts, start=1)]
+
+
 def make_client(tmp_path: Path, fake: FakeEmbeddingClient | None = None) -> TestClient:
     return TestClient(
         create_app(
@@ -32,7 +49,7 @@ def make_client(tmp_path: Path, fake: FakeEmbeddingClient | None = None) -> Test
     )
 
 
-def make_pdf() -> bytes:
+def make_pdf(text: str = "Cultivo") -> bytes:
     writer = PdfWriter()
     page = writer.add_blank_page(width=200, height=200)
     font = DictionaryObject(
@@ -50,7 +67,7 @@ def make_pdf() -> bytes:
         }
     )
     content = DecodedStreamObject()
-    content.set_data(b"BT /F1 12 Tf 20 100 Td (Cultivo) Tj ET")
+    content.set_data(f"BT /F1 12 Tf 20 100 Td ({text}) Tj ET".encode())
     page[NameObject("/Contents")] = writer._add_object(content)
     output = io.BytesIO()
     writer.write(output)
@@ -68,7 +85,7 @@ def test_ingest_extracts_pdf_and_creates_processed_output(tmp_path: Path) -> Non
     assert response.status_code == 200
     assert response.json()["documents"] == 1
     assert response.json()["chunks"] == 1
-    assert list((tmp_path / "processed").glob("manual-*.txt"))
+    assert list((tmp_path / "processed").glob("*.txt"))
 
 
 def test_ingest_uploads_supported_files_and_is_idempotent(tmp_path: Path) -> None:
@@ -92,7 +109,86 @@ def test_ingest_uploads_supported_files_and_is_idempotent(tmp_path: Path) -> Non
     assert second.status_code == 200
     assert second.json()["documents"] == 2
     assert second.json()["chunks"] == 0
+    assert len(fake.calls) == 2
     assert all(task_type == "RETRIEVAL_DOCUMENT" for _, task_type in fake.calls)
+
+
+def test_ingest_resumes_after_embedding_quota_failure(tmp_path: Path) -> None:
+    fake = FailingBatchEmbeddingClient()
+    client = TestClient(
+        create_app(
+            settings=Settings(
+                chroma_path=tmp_path / "chroma",
+                chunk_size=2,
+                chunk_overlap=0,
+                embedding_batch_size=1,
+            ),
+            embedding_client=fake,
+            processed_dir=tmp_path / "processed",
+        )
+    )
+    first = client.post(
+        "/ingest",
+        files={
+            "files": ("partial.txt", b"uno dos tres cuatro cinco seis", "text/plain")
+        },
+    )
+
+    assert first.json()["chunks"] == 1
+    assert "espere unos minutos" in first.json()["errors"][0]["message"]
+
+    fake.fail_on_call = None
+    second = client.post(
+        "/ingest",
+        files={
+            "files": ("partial.txt", b"uno dos tres cuatro cinco seis", "text/plain")
+        },
+    )
+
+    assert second.json()["chunks"] == 2
+    assert len(fake.calls) == 4
+    assert [call[0] for call in fake.calls] == [
+        ["uno dos"],
+        ["tres cuatro"],
+        ["tres cuatro"],
+        ["cinco seis"],
+    ]
+
+
+def test_ingest_skips_extraction_for_completed_same_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    fake = FakeEmbeddingClient()
+    client = make_client(tmp_path, fake)
+    files = {"files": ("complete.txt", b"Contenido completo.", "text/plain")}
+    first = client.post("/ingest", files=files)
+    assert first.json()["chunks"] == 1
+
+    main_module = importlib.import_module("app.main")
+
+    def extraction_must_not_run(*args: object, **kwargs: object) -> object:
+        raise AssertionError("la extracción no debe repetirse")
+
+    monkeypatch.setattr(main_module, "extract_document", extraction_must_not_run)
+    second = client.post("/ingest", files=files)
+
+    assert second.json()["documents"] == 1
+    assert second.json()["chunks"] == 0
+
+
+def test_reindex_uploaded_document_uses_cached_extraction(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+    files = {"files": ("uploaded.txt", b"Texto para reindexar.", "text/plain")}
+    first = client.post("/ingest", files=files)
+    assert first.json()["chunks"] == 1
+    client.delete("/documents/uploaded.txt")
+
+    response = client.post("/documents/uploaded.txt/reindex")
+
+    assert response.status_code == 200
+    assert response.json() == {"documents": 1, "chunks": 1, "errors": []}
 
 
 def test_ingest_reports_empty_and_unsupported_files_in_spanish(tmp_path: Path) -> None:
