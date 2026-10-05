@@ -3,6 +3,8 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # using java 21 for OpenDataLoader, which converts pdf to text.
+# info: https://opendataloader.org/docs/quick-start-python
+# pypdf remains the fallback when OpenDataLoader cannot extract a document.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends openjdk-21-jre-headless curl \
     && rm -rf /var/lib/apt/lists/*
@@ -16,5 +18,4 @@ COPY app ./app
 COPY pdfs_seed ./pdfs_seed
 COPY data ./data
 
-# pypdf remains the fallback when OpenDataLoader cannot extract a document.
 EXPOSE 8000
